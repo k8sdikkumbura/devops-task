@@ -1,2 +1,0 @@
-# devops-task
-devops-task
