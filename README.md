@@ -1,5 +1,7 @@
 # DevOps Challenge: Setting Up the Development Environment
 
+### Note:- I didn't get much time implement the CICD & Implement the best practices
+
 This guide will walk you through setting up your development environment for a .NET 5 application with a SQL Server database running in a Docker container.
 
 ## Prerequisites
@@ -55,11 +57,54 @@ http://localhost:8080/api/sales
 
 ## Set Up CI/CD Pipeline
 
+Create .github/workflows/dotnet.yml
+Sample CICD
+
+```bash
+name: .NET
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '5.0.x'
+
+    - name: Install dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore
+
+    - name: Test
+      run: dotnet test --no-restore --verbosity normal
+
+    - name: Publish
+      run: dotnet publish -c Release -o output
+
+    - name: Build Docker image
+      run: docker build -t sales-api:latest .
+
+    - name: Login to Docker Hub
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Push Docker image
+      run: docker push ${{ secrets.DOCKER_USERNAME }}/sales-api:latest
+```
 
 
-
-
-## Introduce Best Practices
+## Introduce Best Practices Suggestions
 
 Add XML comments to your API controllers and configure Swagger to use them.
 SalesController.cs
