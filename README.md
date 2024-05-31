@@ -1,69 +1,250 @@
-# DevOps Challenge (.NET)
+## Note:- I'm using ubuntu 22.04 desktop machine.I have done the test using this machine.
 
-## Overview :wave:
 
-This challenge focuses on the diverse skills needed by a DevOps Engineer to develop a.NET 5 application.
+### Step 1: Set Up the Development Environment
 
-In completing the challenge, you're welcome to change all aspects of the initial repository, including:
-* Directory and file structure.
-* Solution and project names.
-* Namespaces and class names.
-* Code, data, and settings files.
-* NuGet packages and dependencies.
-* This README!
+First, make sure you have the necessary tools installed on your Ubuntu 22.04 machine:
 
-The solution should embody best practices, even if the initial solution lacks them.
+.NET 5 SDK
+Docker
+Git
 
-You'll need .NET 5 and SQL Server Local DB to build and run the application locally. On a Mac or Linux device, you can update the connection string (in `appsettings.Development.json` and `DatabaseContextDesignTimeFactory.cs`) and use Docker to launch SQL Server Developer Edition.
+### Install .NET 5 SDK:
 
-## Background :blue_book:
+wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt-get update
+sudo apt-get install -y apt-transport-https
+sudo apt-get update
+sudo apt-get install -y dotnet-sdk-5.0
 
-You're a DevOps Engineer working in a small team to launch a new application. The management team will use the new application to view and report on daily sales data.
+### Install Docker:
 
-The development team have built a new API to ingest sales data from an existing system and provide endpoints for viewing and reporting the data. A future application will provide a user interface.
+sudo apt-get update
+sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo apt-get update
+sudo apt-get install -y docker-ce
+sudo usermod -aG docker ${USER}
 
-*Note: For simplicity of the solution, the API does not require authentication. Don't do this in a real application!*
 
-## Question :question:
+## Step 2: Update DB Connection String
 
-You should:
 
-1. Introduce best practices into the solution to ensure a high-quality deliverable and a great developer experience.
+a) Update the connection string in appsettings.Development.json
 
-2. Build and package the application as a container in a CI/CD pipeline ready for deployment
+Before that i have deployed the MS SQL database using docker container & create the database as well
 
-You'll need to select a CI/CD tool to complete the challenge. Feel free to use your preferred platform, such as GitHub Actions, Azure Pipelines, Circle CI, or Travis CI.
+## Start SQL Server with Docker
 
-*Note: This challenge does NOT require infrastructure provisioning or deployment. This challenge has designed to be possible without incurring any licencing, hosting or tooling costs.*
+docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=your_password' -p 1433:1433 -d mcr.microsoft.com/mssql/server:2019-latest
 
-## Good to have (optional) :zap:
+docker exec -it condescending_goldberg /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P your_password
 
-You've received feedback on the application from members of the project team. Optionally, fix these issues, or provide instructions back to the developer on the next steps to take:
+## Create the SalesDb Database
 
-1. The front end developer consuming the Sales API has mentioned the Swagger UI interface doesn't contain descriptions of operations, parameters, or responses. The Swagger UI interface should display the code comments written by the API developer.
+CREATE DATABASE SalesDb;
+GO
 
-2. The security team have identified the application is revealing the technology used by sending the response header `Server: Kestrel`. This header should not be present in responses sent by the server.
+## Verify the Database Creation
 
-3. The database administrator has identified poor query performance when a sale record is retrieved using its transaction ID. They have recommended creating an index.
+SELECT name FROM sys.databases;
+GO
 
-## Attempt :clock5:
+Exit the SQL Command Prompt
+EXIT
 
-Spend as much or as little time as you like on this challenge. DevOps Engineers wear many hats :crown:, and there's always more opportunity for change and improvement. **Limit yourself to the time you have. Make the changes that deliver the most value.**
 
-If you're looking for inspiration of changes to make, consider:
+### Step 03- Update the appsettings.json
+vim src/DevOpsChallenge.SalesApi/appsettings.json
 
-* Getting started documentation for a new developer.
-* Configuring Git's behaviour for particular files.
-* Versioning of artifacts.
-* Linting and code quality analysis.
-* Scanning for code vulnerabilities.
-* Running unit tests.
-* Assessing code coverage.
-* Indexing PDBs for debugging in a deployed environment.
-* Preparing to run integration tests on a deployed environment.
-* Preparing to deploy database schema migrations.
-* Generating a client for the API.
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "DevOpsChallenge": "Information",
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost,1433;Database=SalesDb;User Id=sa;Password=your_password;"
+  }
+}
 
-There's always more to learn and do. **You don't need to do all of these to demonstrate your ability.** This list is a suggestion of ideas. You're welcome to do something else.
+### Step -04 Update the Startup.cs
 
-Be kind to yourself, and enjoy the challenge. :heart:
+vim src/DevOpsChallenge.SalesApi/Startup.cs
+
+using DevOpsChallenge.SalesApi.Business;
+using DevOpsChallenge.SalesApi.Database;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.OpenApi.Models;
+using System;
+using System.IO;
+using System.Reflection;
+using System.Text.Json.Serialization;
+
+namespace DevOpsChallenge.SalesApi
+{
+    /// <summary>
+    /// Start the web application.
+    /// </summary>
+    public class Startup
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Startup"/> class.
+        /// </summary>
+        /// <param name="configuration">The application configuration.</param>
+        public Startup(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
+
+        /// <summary>
+        /// Gets the application configuration.
+        /// </summary>
+        public IConfiguration Configuration { get; }
+
+        /// <summary>
+        /// Configure the dependency injection container.
+        /// </summary>
+        /// <param name="services">The dependency injection service collection.</param>
+        public void ConfigureServices(IServiceCollection services)
+        {
+            // --------------------------------------------------------------------------------
+            // DOMAIN
+            // --------------------------------------------------------------------------------
+
+            // Business
+            services.AddBusiness();
+
+            // --------------------------------------------------------------------------------
+            // DATABASE
+            // --------------------------------------------------------------------------------
+
+            // Database Context Options
+            void DbContextOptionsBuilder(DbContextOptionsBuilder builder) =>
+                builder.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"), o =>
+                    o.MigrationsAssembly(typeof(DatabaseContext).Assembly.FullName));
+
+            // Databases
+            services.AddDatabase(DbContextOptionsBuilder);
+
+            // --------------------------------------------------------------------------------
+            // HTTP PIPELINE
+            // --------------------------------------------------------------------------------
+
+            // MVC
+            services
+                .AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.IgnoreNullValues = true;
+                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                });
+
+            // Swagger
+            services.AddSwaggerGen(c =>
+            {
+                // Information
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "sales-api", Version = "v1" });
+
+                // Comments
+                string xmlCommentsFilePath = Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");
+                if (File.Exists(xmlCommentsFilePath))
+                {
+                    c.IncludeXmlComments(xmlCommentsFilePath);
+                }
+
+                // Operation IDs - required for some client code generation tools
+                c.CustomOperationIds(x => (x.ActionDescriptor as ControllerActionDescriptor)?.ActionName);
+            });
+        }
+
+        /// <summary>
+        /// Configure the HTTP pipeline and some services.
+        /// </summary>
+        /// <param name="app">The application pipeline builder.</param>
+        /// <param name="env">The hosting environment.</param>
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        {
+            // Development mode
+            if (env.IsDevelopment())
+            {
+                // Show exceptions
+                app.UseDeveloperExceptionPage();
+
+                // Swagger JSON
+                app.UseSwagger();
+
+                // Swagger UI
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint($"/swagger/v1/swagger.json", "sales-api" + ' ' + "v1");
+                });
+            }
+
+            // Endpoint routing
+            app.UseRouting();
+
+            // Endpoints
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+            });
+        }
+    }
+}
+
+### Step 05 Create Dockerfile
+
+vim Dockerfile
+
+FROM mcr.microsoft.com/dotnet/aspnet:5.0 AS base
+WORKDIR /app
+EXPOSE 80
+
+FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
+WORKDIR /src
+COPY ["src/DevOpsChallenge.SalesApi/DevOpsChallenge.SalesApi.csproj", "src/DevOpsChallenge.SalesApi/"]
+RUN dotnet restore "src/DevOpsChallenge.SalesApi/DevOpsChallenge.SalesApi.csproj"
+COPY . .
+WORKDIR "/src/src/DevOpsChallenge.SalesApi"
+RUN dotnet build "DevOpsChallenge.SalesApi.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "DevOpsChallenge.SalesApi.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "DevOpsChallenge.SalesApi.dll"]
+
+### Step 05 Verify the app container status
+
+Step -04 Check the logs in the app container
+milan@sl-mdikkumburage:~/workspace/mytask/devops-task/devops-challenge-dotnet(main)$  docker logs -f sales-api-container
+info: Microsoft.Hosting.Lifetime[0]
+      Now listening on: http://[::]:80
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: /app
+
+### Step 06 Access the Sales API 
+
+http://localhost:8080/api/sales
+
+ 
+
+
