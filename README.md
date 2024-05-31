@@ -206,7 +206,9 @@ namespace DevOpsChallenge.SalesApi
 
 ### Step 05 Create Dockerfile
 
-vim Dockerfile
+## vim Dockerfile
+
+
 
 FROM mcr.microsoft.com/dotnet/aspnet:5.0 AS base
 WORKDIR /app
