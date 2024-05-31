@@ -1,6 +1,6 @@
 # DevOps Challenge: Setting Up the Development Environment
 
-### Note:- I didn't get much time implement the CICD & Implement the best practices
+Note:- I didn't get much time implement the CICD & the best practices
 
 This guide will walk you through setting up your development environment for a .NET 5 application with a SQL Server database running in a Docker container.
 
