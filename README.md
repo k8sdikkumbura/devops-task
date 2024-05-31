@@ -1,71 +1,43 @@
-## Note:- I'm using ubuntu 22.04 desktop machine.I have done the test using this machine.
+# DevOps Challenge: Setting Up the Development Environment
 
+This guide will walk you through setting up your development environment for a .NET 5 application with a SQL Server database running in a Docker container.
 
-### Step 1: Set Up the Development Environment
+## Prerequisites
 
-First, make sure you have the necessary tools installed on your Ubuntu 22.04 machine:
+- Ubuntu 22.04 Desktop machine
+- .NET 5 SDK
+- Docker
+- Git
 
-.NET 5 SDK
-Docker
-Git
-
-### Install .NET 5 SDK:
-
-wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-sudo dpkg -i packages-microsoft-prod.deb
-sudo apt-get update
-sudo apt-get install -y apt-transport-https
-sudo apt-get update
-sudo apt-get install -y dotnet-sdk-5.0
-
-### Install Docker:
-
-sudo apt-get update
-sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-sudo apt-get update
-sudo apt-get install -y docker-ce
-sudo usermod -aG docker ${USER}
-
-
-## Step 2: Update DB Connection String
-
-
-a) Update the connection string in appsettings.Development.json
+## Deploy the MS SQL db in docker
 
 Before that i have deployed the MS SQL database using docker container & create the database as well
 
-## Start SQL Server with Docker
+Start SQL Server with Docker
 
+```bash
 docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=your_password' -p 1433:1433 -d mcr.microsoft.com/mssql/server:2019-latest
+```
 
-docker exec -it condescending_goldberg /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P your_password
+## Create the database 
 
-## Create the SalesDb Database
-
+```bash
 CREATE DATABASE SalesDb;
 GO
-
-## Verify the Database Creation
-
 SELECT name FROM sys.databases;
 GO
-
-Exit the SQL Command Prompt
 EXIT
+```
 
+## Updated the appsettings.json
 
-### Step 03- Update the appsettings.json
-vim src/DevOpsChallenge.SalesApi/appsettings.json
+## Updated the Startup.cs
 
+## Create Dockerfile
 
-### Step -04 Update the Startup.cs
+##  Verify the app container status
 
-### Step 05 Create Dockerfile
-
-### Step 06 Verify the app container status
-
+```bash
 docker logs -f sales-api-container
 
 info: Microsoft.Hosting.Lifetime[0]
@@ -76,13 +48,52 @@ info: Microsoft.Hosting.Lifetime[0]
       Hosting environment: Production
 info: Microsoft.Hosting.Lifetime[0]
       Content root path: /app
-
-### Step 07 Access the Sales API 
-
+```
+## Access the Sales API 
 http://localhost:8080/api/sales
 
 
+## Set Up CI/CD Pipeline
 
- 
+
+
+
+
+## Introduce Best Practices
+
+Add XML comments to your API controllers and configure Swagger to use them.
+SalesController.cs
+
+```bash
+/// <summary>
+/// Handles sales data.
+/// </summary>
+[ApiController]
+[Route("api/[controller]")]
+public class SalesController : ControllerBase
+{
+    /// <summary>
+    /// Gets all sales.
+    /// </summary>
+    /// <returns>List of sales.</returns>
+    [HttpGet]
+    public IActionResult GetSales()
+    {
+        // implementation
+    }
+
+    // Other actions
+}
+```
+
+## Remove Kestrel Server Header
+
+In Program.cs, add the following code:
+```bash
+webBuilder.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.AddServerHeader = false;
+});
+```
 
 
